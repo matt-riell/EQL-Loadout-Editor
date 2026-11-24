@@ -1,0 +1,1468 @@
+<Window x:Class="EqlLoadouts.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:EqlLoadouts.App.Controls"
+        xmlns:local="clr-namespace:EqlLoadouts.App"
+        xmlns:models="clr-namespace:EqlLoadouts.App.Models"
+        xmlns:layout="clr-namespace:EqlLoadouts.Core.Layout;assembly=EqlLoadouts.Core"
+        Title="EQL Loadout Editor"
+        Icon="Assets/AppIcon.ico"
+        Width="1440"
+        Height="900"
+        MinWidth="1100"
+        MinHeight="700"
+        Background="{DynamicResource WindowBackground}"
+        Foreground="{DynamicResource TextBrush}"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <Window.Resources>
+        <DataTemplate x:Key="GroupRowTemplate">
+            <Grid Margin="0,8,0,2" Background="Transparent" Cursor="Hand"
+                  ToolTip="Select every window in this group. Use the chevron to collapse or expand the list.">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Button Grid.Column="0" Style="{StaticResource IconButton}" Width="22" Height="22" FontSize="10" Margin="0,0,4,0"
+                        Content="{Binding Group.Chevron}" Focusable="False"
+                        AutomationProperties.Name="{Binding Group.ExpandLabel}"
+                        ToolTip="Collapse or expand this group"/>
+                <TextBlock Grid.Column="1" Text="{Binding Group.Name}" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                <ContentControl Grid.Column="2" Style="{StaticResource Chip}" Content="{Binding Group.CountText}" FontSize="11" Padding="7,0" Margin="8,0,0,0"/>
+            </Grid>
+        </DataTemplate>
+        <Style x:Key="SpellPanelRail" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="VerticalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Top"/>
+            <Setter Property="Padding" Value="0,8,0,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bg" Background="Transparent" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="{DynamicResource HoverBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="SpellPickItem" TargetType="ListBoxItem" BasedOn="{StaticResource ModernListItem}">
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <ContentPresenter/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="SpellCardChrome" TargetType="Border">
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Padding" Value="6,3"/>
+            <Setter Property="Background" Value="{DynamicResource SurfaceAlt}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style x:Key="SpellPickCard" TargetType="Border" BasedOn="{StaticResource SpellCardChrome}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                    <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource SelectionBrush}"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="SpellDetailCard" TargetType="Border" BasedOn="{StaticResource SpellCardChrome}"/>
+        <Style x:Key="SectionListItem" TargetType="ListBoxItem" BasedOn="{StaticResource ModernListItem}">
+            <Setter Property="AutomationProperties.Name" Value="{Binding AutomationName}"/>
+        </Style>
+        <DataTemplate x:Key="ItemRowTemplate">
+            <DockPanel>
+                <DockPanel.Style>
+                    <Style TargetType="DockPanel">
+                        <Setter Property="Margin" Value="10,0,0,0"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsChild}" Value="True">
+                                <Setter Property="Margin" Value="28,0,0,0"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding Item.IsBlocked}" Value="True">
+                                <Setter Property="Opacity" Value="0.45"/>
+                                <Setter Property="ToolTip" Value="{Binding Item.BlockReason}"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </DockPanel.Style>
+                <CheckBox DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,8,0"
+                          IsChecked="{Binding Item.IsShown, Mode=TwoWay}"
+                          Click="SectionShown_Click"
+                          ToolTip="Show or hide this item"
+                          Visibility="{Binding Item.CanToggleShown, Converter={StaticResource BoolToVisible}}"/>
+                <TextBlock DockPanel.Dock="Right" Text="{Binding Item.KindLabel}" Margin="8,0,0,0" Foreground="{DynamicResource MutedBrush}" FontSize="11" VerticalAlignment="Center"
+                           Visibility="{Binding Item.KindLabel, Converter={StaticResource StringToVisible}}"/>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Item.ListText}" ToolTip="{Binding Item.Name}" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Text="{Binding Item.Detail}" ToolTip="{Binding Item.Detail}" FontSize="11" Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis"
+                               Visibility="{Binding Item.Detail, Converter={StaticResource StringToVisible}}"/>
+                </StackPanel>
+            </DockPanel>
+        </DataTemplate>
+        <DataTemplate x:Key="GroupToggleTemplate">
+            <ToggleButton Style="{StaticResource SegmentedToggle}" Content="{Binding Name}"
+                          IsChecked="{Binding CheckState, Mode=OneWay}"
+                          PreviewMouseLeftButtonDown="GroupToggle_PreviewMouseLeftButtonDown"
+                          PreviewKeyDown="GroupToggle_PreviewKeyDown">
+                <ToggleButton.ToolTip>
+                    <TextBlock>
+                        <Run Text="{Binding CountText, Mode=OneWay}"/><Run Text=" shown. Click to show or hide the whole group."/>
+                    </TextBlock>
+                </ToggleButton.ToolTip>
+            </ToggleButton>
+        </DataTemplate>
+        <DataTemplate x:Key="GroupMenuTemplate">
+            <ToggleButton Style="{StaticResource SegmentedToggle}" Content="{Binding Name}" BorderThickness="0,1,0,0" MinHeight="32"
+                          IsChecked="{Binding CheckState, Mode=OneWay}"
+                          PreviewMouseLeftButtonDown="GroupToggle_PreviewMouseLeftButtonDown"
+                          PreviewKeyDown="GroupToggle_PreviewKeyDown">
+                <ToggleButton.ToolTip>
+                    <TextBlock>
+                        <Run Text="{Binding CountText, Mode=OneWay}"/><Run Text=" shown. Click to show or hide the whole group."/>
+                    </TextBlock>
+                </ToggleButton.ToolTip>
+            </ToggleButton>
+        </DataTemplate>
+        <local:SectionRowTemplateSelector x:Key="SectionRowTemplates"
+                                          GroupTemplate="{StaticResource GroupRowTemplate}"
+                                          ItemTemplate="{StaticResource ItemRowTemplate}"/>
+
+        <ContextMenu x:Key="ArrangeMenu" x:Shared="False"
+                     DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
+                     MenuItem.Click="ArrangeMenu_Click">
+            <MenuItem Style="{StaticResource MenuHeader}" Header="{Binding ArrangeHeader}" FontSize="12" Foreground="{DynamicResource TextBrush}"/>
+            <Separator/>
+            <MenuItem Style="{StaticResource MenuHeader}" Header="ALIGN"/>
+            <MenuItem Header="Left" Tag="{x:Static layout:ArrangeAction.AlignLeft}" IsEnabled="{Binding CanArrange}"/>
+            <MenuItem Header="Center" Tag="{x:Static layout:ArrangeAction.AlignCenter}" IsEnabled="{Binding CanArrange}"/>
+            <MenuItem Header="Right" Tag="{x:Static layout:ArrangeAction.AlignRight}" IsEnabled="{Binding CanArrange}"/>
+            <MenuItem Header="Top" Tag="{x:Static layout:ArrangeAction.AlignTop}" IsEnabled="{Binding CanArrange}"/>
+            <MenuItem Header="Middle" Tag="{x:Static layout:ArrangeAction.AlignMiddle}" IsEnabled="{Binding CanArrange}"/>
+            <MenuItem Header="Bottom" Tag="{x:Static layout:ArrangeAction.AlignBottom}" IsEnabled="{Binding CanArrange}"/>
+            <Separator/>
+            <MenuItem Style="{StaticResource MenuHeader}" Header="SCREEN"/>
+            <MenuItem Header="Center horizontally" Tag="{x:Static layout:ArrangeAction.CenterOnScreenHorizontally}" IsEnabled="{Binding CanCenterOnScreen}"/>
+            <MenuItem Header="Center vertically" Tag="{x:Static layout:ArrangeAction.CenterOnScreenVertically}" IsEnabled="{Binding CanCenterOnScreen}"/>
+            <Separator/>
+            <MenuItem Style="{StaticResource MenuHeader}" Header="STACK"/>
+            <MenuItem Header="Right" Tag="{x:Static layout:ArrangeAction.StackRight}" IsEnabled="{Binding CanArrange}"/>
+            <MenuItem Header="Left" Tag="{x:Static layout:ArrangeAction.StackLeft}" IsEnabled="{Binding CanArrange}"/>
+            <MenuItem Header="Down" Tag="{x:Static layout:ArrangeAction.StackDown}" IsEnabled="{Binding CanArrange}"/>
+            <MenuItem Header="Up" Tag="{x:Static layout:ArrangeAction.StackUp}" IsEnabled="{Binding CanArrange}"/>
+            <Separator/>
+            <MenuItem Style="{StaticResource MenuHeader}" Header="SIZE"/>
+            <MenuItem Header="Horizontal size" Tag="{x:Static layout:ArrangeAction.MatchWidth}" IsEnabled="{Binding CanArrange}"/>
+            <MenuItem Header="Vertical size" Tag="{x:Static layout:ArrangeAction.MatchHeight}" IsEnabled="{Binding CanArrange}"/>
+        </ContextMenu>
+
+        <DataTemplate x:Key="SocialButtonTemplate">
+            <Border MinHeight="28" Margin="1" AllowDrop="True" ToolTip="{Binding ToolTip}"
+                    PreviewMouseLeftButtonDown="SocialButton_PreviewMouseLeftButtonDown"
+                    PreviewMouseMove="SocialButton_PreviewMouseMove"
+                    PreviewMouseLeftButtonUp="SocialButton_PreviewMouseLeftButtonUp"
+                    PreviewMouseRightButtonUp="SocialButton_PreviewMouseRightButtonUp"
+                    DragOver="SocialButton_DragOver"
+                    Drop="SocialButton_Drop">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="{DynamicResource SurfaceAlt}"/>
+                        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+                        <Setter Property="BorderThickness" Value="1"/>
+                        <Setter Property="CornerRadius" Value="4"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsNew}" Value="True">
+                                <Setter Property="BorderBrush" Value="{DynamicResource SocialNewBrush}"/>
+                                <Setter Property="BorderThickness" Value="2"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsMismatch}" Value="True">
+                                <Setter Property="BorderBrush" Value="{DynamicResource SocialMismatchBrush}"/>
+                                <Setter Property="BorderThickness" Value="2"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsDuplicate}" Value="True">
+                                <Setter Property="BorderBrush" Value="{DynamicResource SocialMatchBrush}"/>
+                                <Setter Property="BorderThickness" Value="2"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsQueued}" Value="True">
+                                <Setter Property="BorderBrush" Value="{DynamicResource SocialQueuedBrush}"/>
+                                <Setter Property="BorderThickness" Value="2"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource SelectionBrush}"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsDragPreview}" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource SurfaceAlt}"/>
+                                <Setter Property="BorderBrush" Value="{Binding PreviewBorderBrush}"/>
+                                <Setter Property="BorderThickness" Value="{Binding PreviewBorderThickness}"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <Grid>
+                    <TextBlock Text="NEW" FontSize="8" FontWeight="Bold" HorizontalAlignment="Left" VerticalAlignment="Top"
+                               Margin="3,0,0,0" Foreground="{DynamicResource SocialNewBrush}" IsHitTestVisible="False"
+                               Visibility="{Binding ShowNewMark, Converter={StaticResource BoolToVisible}}"/>
+                    <TextBlock FontSize="11" TextAlignment="Center" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" Margin="3,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Text" Value="{Binding ShownCaption}"/>
+                                <Setter Property="Foreground" Value="{Binding ShownBrush}"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsEmpty}" Value="True">
+                                        <Setter Property="Foreground" Value="{DynamicResource MutedBrush}"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding ShowIncomingName}" Value="True">
+                                        <Setter Property="Text" Value="{Binding ShownCaption}"/>
+                                        <Setter Property="Foreground" Value="{Binding ShownBrush}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Grid>
+            </Border>
+        </DataTemplate>
+        <DataTemplate x:Key="SocialPageTemplate">
+            <Grid Margin="0,1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="58"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding Label}" VerticalAlignment="Center" FontSize="11" Foreground="{DynamicResource MutedBrush}"/>
+                <ItemsControl Grid.Column="1" ItemsSource="{Binding Buttons}" ItemTemplate="{StaticResource SocialButtonTemplate}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <UniformGrid Columns="12"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+            </Grid>
+        </DataTemplate>
+        <Style x:Key="AdjustedValue" TargetType="TextBlock">
+            <Setter Property="Visibility" Value="Collapsed"/>
+            <Setter Property="Margin" Value="4,0,0,0"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Tone}" Value="Mana">
+                    <Setter Property="Visibility" Value="Visible"/>
+                    <Setter Property="Foreground" Value="#7EB6FF"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Tone}" Value="Time">
+                    <Setter Property="Visibility" Value="Visible"/>
+                    <Setter Property="Foreground" Value="#5EE0D0"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Tone}" Value="Benefit">
+                    <Setter Property="Visibility" Value="Visible"/>
+                    <Setter Property="Foreground" Value="#3DDC97"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Tone}" Value="Worse">
+                    <Setter Property="Visibility" Value="Visible"/>
+                    <Setter Property="Foreground" Value="#E07070"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <DataTemplate x:Key="SpellDetailTemplate">
+            <StackPanel>
+                <Border Style="{StaticResource SpellDetailCard}">
+                    <DockPanel>
+                        <Image DockPanel.Dock="Right" Margin="8,0,0,0" VerticalAlignment="Center"
+                               Width="{Binding DataContext.SpellIconPixels, RelativeSource={RelativeSource AncestorType=Window}}"
+                               Height="{Binding DataContext.SpellIconPixels, RelativeSource={RelativeSource AncestorType=Window}}"
+                               Source="{Binding Icon}" RenderOptions.BitmapScalingMode="HighQuality">
+                            <Image.Style>
+                                <Style TargetType="Image">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Icon}" Value="{x:Null}">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Image.Style>
+                        </Image>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Name}" TextWrapping="Wrap">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsUnusable}" Value="True">
+                                                <Setter Property="Foreground" Value="{DynamicResource WarningBrush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <TextBlock Text="{Binding PanelLevel}" FontSize="11" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource AccentBrush}" TextWrapping="Wrap" Margin="0,1,0,0"
+                                       Visibility="{Binding PanelLevel, Converter={StaticResource StringToVisible}}"/>
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+                <ItemsControl Margin="0,8,0,0" ItemsSource="{Binding Details}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,1">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="108"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding Label}" Foreground="{DynamicResource MutedBrush}"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                    <TextBlock Text="{Binding Value}" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}"/>
+                                    <TextBlock Text="{Binding AdjustedText}" Style="{StaticResource AdjustedValue}"/>
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Text="{Binding Description}" Margin="0,8,0,0" TextWrapping="Wrap"
+                           Foreground="{DynamicResource TextBrush}"
+                           Visibility="{Binding Description, Converter={StaticResource StringToVisible}}"/>
+                <ItemsControl Margin="0,8,0,0" ItemsSource="{Binding EffectLines}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" Margin="0,1">
+                                <TextBlock Text="{Binding Value}" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}"/>
+                                <TextBlock Text="{Binding AdjustedText}" Style="{StaticResource AdjustedValue}"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </DataTemplate>
+    </Window.Resources>
+    <Grid>
+        <DockPanel x:Name="MainLayout">
+            <Border DockPanel.Dock="Top" Background="{DynamicResource Surface}" Padding="16,8" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*" MinWidth="110"/>
+                        <ColumnDefinition Width="1.5*" MinWidth="140"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*" MinWidth="110"/>
+                        <ColumnDefinition Width="1.5*" MinWidth="140"/>
+                        <ColumnDefinition Width="1.1*" MinWidth="110"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+                        <TextBlock Text="EQ" FontSize="15" FontWeight="SemiBold"/>
+                        <TextBlock Text="Loadout Editor" FontSize="11" Foreground="{DynamicResource MutedBrush}"/>
+                    </StackPanel>
+                    <ComboBox x:Name="SourceServerCombo" Grid.Column="1" Style="{StaticResource LabeledComboBox}" Tag="Source server"
+                              ItemsSource="{Binding SourceServers}" DisplayMemberPath="Text" SelectionChanged="SourceServerCombo_SelectionChanged"/>
+                    <ComboBox x:Name="SourceLoadoutCombo" Grid.Column="2" Style="{StaticResource LabeledComboBox}" Tag="Source loadout" Margin="8,0,0,0"
+                              ItemsSource="{Binding SourceLoadouts}" DisplayMemberPath="Text" SelectionChanged="SourceLoadoutCombo_SelectionChanged"/>
+                    <TextBlock Grid.Column="3" Text="&#xE72A;" FontFamily="{StaticResource IconFont}" FontSize="14" Margin="10,6,10,0"
+                               VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}" ToolTip="Sections are copied from the source to the destination"/>
+                    <ComboBox x:Name="DestinationServerCombo" Grid.Column="4" Style="{StaticResource LabeledComboBox}" Tag="Destination server"
+                              ItemsSource="{Binding DestinationServers}" DisplayMemberPath="Text" SelectionChanged="DestinationServerCombo_SelectionChanged"/>
+                    <ComboBox x:Name="DestinationLoadoutCombo" Grid.Column="5" Style="{StaticResource LabeledComboBox}" Tag="Destination loadout" Margin="8,0,0,0"
+                              ItemsSource="{Binding DestinationLoadouts}" DisplayMemberPath="Text"
+                              IsEnabled="{Binding DestinationLoadoutsEnabled}" SelectionChanged="DestinationLoadoutCombo_SelectionChanged"/>
+                    <Grid Grid.Column="6" Margin="16,0,0,0">
+                        <ToggleButton x:Name="ClassButton" Style="{StaticResource LabeledToggle}" Tag="Class" IsEnabled="{Binding CanPickClass}"
+                                      IsChecked="{Binding IsOpen, ElementName=ClassPopup, Mode=TwoWay}"
+                                      ToolTip="The viewed loadout's level and classes. Spell loadouts use the level.">
+                            <TextBlock>
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="{Binding ClassSummary}"/>
+                                        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ClassSummary}" Value="">
+                                                <Setter Property="Text" Value="Class not set"/>
+                                                <Setter Property="Foreground" Value="{DynamicResource MutedBrush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </ToggleButton>
+                        <Popup x:Name="ClassPopup" PlacementTarget="{Binding ElementName=ClassButton}" Placement="Bottom" VerticalOffset="4"
+                               StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade" Opened="ClassPopup_Opened">
+                            <ContentControl x:Name="ClassPanel" Style="{StaticResource PopupPanel}" Width="580">
+                                <StackPanel>
+                                    <TextBlock Text="Classes for this loadout" FontWeight="SemiBold"/>
+                                    <TextBlock Text="A loadout uses 3 different classes. Level comes from /who in the log, and can be typed over." FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                    <Grid Margin="0,8,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="88"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox Grid.Column="0" Style="{StaticResource LabeledTextBox}" Tag="Level" Margin="0,0,8,0"
+                                                 MaxLength="3" Text="{Binding CharacterLevelText, UpdateSourceTrigger=PropertyChanged}"/>
+                                        <UniformGrid Grid.Column="1" Columns="3">
+                                            <ComboBox Style="{StaticResource LabeledComboBox}" Tag="Class 1" ItemsSource="{Binding ClassOptions}" DisplayMemberPath="Text"
+                                                      SelectedValuePath="Index" SelectedValue="{Binding ClassPick1}"/>
+                                            <ComboBox Style="{StaticResource LabeledComboBox}" Tag="Class 2" ItemsSource="{Binding ClassOptions}" DisplayMemberPath="Text"
+                                                      SelectedValuePath="Index" SelectedValue="{Binding ClassPick2}" Margin="8,0,0,0"/>
+                                            <ComboBox Style="{StaticResource LabeledComboBox}" Tag="Class 3" ItemsSource="{Binding ClassOptions}" DisplayMemberPath="Text"
+                                                      SelectedValuePath="Index" SelectedValue="{Binding ClassPick3}" Margin="8,0,0,0"/>
+                                        </UniformGrid>
+                                    </Grid>
+                                    <TextBlock Text="Seen in your log" FontWeight="SemiBold" Margin="0,14,0,0"/>
+                                    <ItemsControl ItemsSource="{Binding ClassSuggestions}" Margin="0,8,0,0">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button Style="{StaticResource ChipButton}" Margin="0,0,6,6" Click="ClassSuggestion_Click" ToolTip="{Binding Tip}">
+                                                    <TextBlock>
+                                                        <Run Text="{Binding Classes, Mode=OneWay}" Foreground="{DynamicResource TextBrush}"/>
+                                                        <Run Text="{Binding Level, Mode=OneWay}"/>
+                                                    </TextBlock>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <TextBlock Text="{Binding ClassSuggestionNote}" FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap"
+                                               Visibility="{Binding ClassSuggestionNote, Converter={StaticResource StringToVisible}}"/>
+                                    <DockPanel Margin="0,12,0,0">
+                                        <Button DockPanel.Dock="Right" Content="Done" Click="ClassDone_Click"/>
+                                    </DockPanel>
+                                </StackPanel>
+                            </ContentControl>
+                        </Popup>
+                    </Grid>
+                    <StackPanel Grid.Column="7" Orientation="Horizontal" Margin="12,6,0,0" VerticalAlignment="Center">
+                        <ToggleButton x:Name="SettingsButton" Content="&#xE713;"
+                                      AutomationProperties.Name="Settings"
+                                      IsChecked="{Binding IsOpen, ElementName=SettingsPopup, Mode=TwoWay}">
+                            <ToggleButton.Style>
+                                <Style TargetType="ToggleButton" BasedOn="{StaticResource IconToggle}">
+                                    <Setter Property="ToolTip" Value="Settings"/>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter Property="IsHitTestVisible" Value="False"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ToggleButton.Style>
+                        </ToggleButton>
+                        <Popup x:Name="SettingsPopup" PlacementTarget="{Binding ElementName=SettingsButton}" Placement="Bottom" HorizontalOffset="-414" VerticalOffset="4"
+                               StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade" Opened="SettingsPopup_Opened" Closed="SettingsPopup_Closed">
+                            <ContentControl Style="{StaticResource PopupPanel}" Width="452">
+                                <StackPanel>
+                                    <DockPanel>
+                                        <Button DockPanel.Dock="Right" Content="Browse..." Margin="8,4,0,0" Click="Browse_Click"/>
+                                        <TextBox x:Name="GameDirectoryBox" AutomationProperties.Name="Game folder" Style="{StaticResource LabeledTextBox}" Tag="Game folder"
+                                                 Text="{Binding GameDirectory, Mode=OneWay}" LostFocus="GameDirectoryBox_LostFocus" KeyDown="GameDirectoryBox_KeyDown"/>
+                                    </DockPanel>
+                                    <TextBlock Text="The EverQuest Legends install folder. Press Enter to apply a typed path." Margin="2,8,0,0" FontSize="11"
+                                               Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap"/>
+                                    <UniformGrid Columns="2" Margin="0,12,0,0">
+                                        <ComboBox Style="{StaticResource LabeledComboBox}" Tag="Spell icons" Margin="0,0,8,0"
+                                                  ItemsSource="{Binding SpellIconSets}" DisplayMemberPath="Text"
+                                                  SelectedItem="{Binding SelectedSpellIconSet}"/>
+                                        <ComboBox Style="{StaticResource LabeledComboBox}" Tag="Icon size"
+                                                  ItemsSource="{Binding SpellIconScales}" DisplayMemberPath="Text"
+                                                  SelectedItem="{Binding SelectedSpellIconScale}"/>
+                                    </UniformGrid>
+                                    <TextBlock Text="Spell icons default to the game's Default texture set, the same choice as Alternative Textures set to Default. Alternate 1, 2, and 3 match the other choices. Size defaults to x1.5 (36 pixels). Choices run from x0.5 (12 pixels) to x4 (96 pixels) in steps of 0.5."
+                                               Margin="2,8,0,0" FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap"/>
+                                    <Separator Margin="0,12"/>
+                                    <CheckBox Content="Show the inventory export reminder when the app starts" IsChecked="{Binding ShowInventoryReminder}"/>
+                                    <UniformGrid Columns="2" Margin="0,12,0,0">
+                                        <TextBox Style="{StaticResource LabeledTextBox}" Tag="Horizontal stack" Margin="0,0,8,0"
+                                                 Text="{Binding HorizontalStackSpacingText, UpdateSourceTrigger=LostFocus}"/>
+                                        <TextBox Style="{StaticResource LabeledTextBox}" Tag="Vertical stack"
+                                                 Text="{Binding VerticalStackSpacingText, UpdateSourceTrigger=LostFocus}"/>
+                                    </UniformGrid>
+                                    <TextBlock Text="Pixels between windows when you stack them. 0 places the frames together. Each value can be from 0 to 100."
+                                               Margin="2,8,0,0" FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap"/>
+                                    <StackPanel Visibility="{Binding IsDebugBuild, Converter={StaticResource BoolToVisible}}">
+                                        <Separator Margin="0,12"/>
+                                        <CheckBox Content="Show raw keys" IsChecked="{Binding ShowRawKeys}" Click="RawKeysSetting_Click"/>
+                                        <TextBlock Text="Shows the Raw keys tab for the selected section."
+                                                   Margin="2,8,0,0" FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap"/>
+                                        <CheckBox Content="Save modified copies" Margin="0,12,0,0" IsChecked="{Binding SaveModifiedCopies}"/>
+                                        <TextBlock Text="When a save backs up the original files into the folder you pick, also writes the new text into a modified folder inside that backup."
+                                                   Margin="2,8,0,0" FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap"/>
+                                        <CheckBox Content="Show hot buttons" Margin="0,12,0,0" IsChecked="{Binding ShowHotButtons}"/>
+                                        <TextBlock Text="Shows the Hot Buttons rows in the section list."
+                                                   Margin="2,8,0,0" FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap"/>
+                                        <CheckBox Content="Show spell suggestions" Margin="0,12,0,0" IsChecked="{Binding ShowSpellSuggestions}"/>
+                                        <TextBlock Text="Shows suggested Buffs, Perms, and Attack sets, and gem suggestions, on the Spell Loadouts tab."
+                                                   Margin="2,8,0,0" FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap"/>
+                                        <Button Content="Reset classes for this loadout" HorizontalAlignment="Left" Margin="0,12,0,0"
+                                                Click="ResetViewedClasses_Click" IsEnabled="{Binding CanPickClass}"
+                                                ToolTip="Clear the saved classes for the source loadout and open Choose Classes."/>
+                                        <Button Content="Reset classes for all loadouts" HorizontalAlignment="Left" Margin="0,8,0,0"
+                                                Click="ResetAllClasses_Click"
+                                                ToolTip="Clear the saved classes for every loadout, then open Choose Classes for the source loadout."/>
+                                        <TextBlock Text="Clears saved classes so Choose Classes can preselect them from the spell gems again. This loadout is the source loadout."
+                                                   Margin="2,8,0,0" FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <Separator Margin="0,12"/>
+                                    <Button Content="Reset application to defaults" HorizontalAlignment="Left" Click="ResetWindowSettings_Click"
+                                            ToolTip="Restore the application settings to their default values."/>
+                                    <TextBlock Text="Restores the window, theme, snap, spell icons, stack spacing, reminders, and game folder. Class labels and saved window visibility are cleared, and the save reminder is shown again."
+                                               Margin="2,8,0,0" FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </ContentControl>
+                        </Popup>
+                        <Button Click="Theme_Click" Margin="4,0,0,0">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
+                                    <Setter Property="Content" Value="&#xE708;"/>
+                                    <Setter Property="ToolTip" Value="Switch to the dark theme"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                            <Setter Property="Content" Value="&#xE706;"/>
+                                            <Setter Property="ToolTip" Value="Switch to the light theme"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                        <Button Click="About_Click" Margin="4,0,0,0" Content="?" ToolTip="About this program"
+                                AutomationProperties.Name="About">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
+                                    <Setter Property="FontFamily" Value="Segoe UI"/>
+                                    <Setter Property="FontSize" Value="16"/>
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Border DockPanel.Dock="Bottom" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Padding="16,8">
+                <DockPanel>
+                    <Button x:Name="SaveButton" DockPanel.Dock="Right" Style="{StaticResource AccentButton}" MinWidth="96" Margin="8,0,0,0"
+                            Content="{Binding SaveButtonText}" IsEnabled="{Binding CanSave}" Click="Save_Click"
+                            ToolTip="Save changed sections, or the highlighted window positions. Originals are copied to LoadoutBackups\MODIFIED first. (Ctrl+S)" ToolTipService.ShowOnDisabled="True"/>
+                    <Button DockPanel.Dock="Right" Content="Restore" Margin="8,0,0,0" Click="Restore_Click"
+                            ToolTip="Check loadouts and put their character files, windows files, or both back into the EverQuest Legends folder."/>
+                    <Button DockPanel.Dock="Right" Content="Backup Files" Margin="8,0,0,0" Click="SaveCopies_Click"
+                            IsEnabled="{Binding CanSaveLoadoutCopies}"
+                            ToolTip="Copy every character's loadouts into LoadoutBackups\FULL, including unsaved edits. Live game files are not changed."
+                            ToolTipService.ShowOnDisabled="True"/>
+                    <Button DockPanel.Dock="Right" Content="{Binding CopyButtonText}" Margin="12,0,0,0" Click="Copy_Click" IsEnabled="{Binding CanCopy}"
+                            Visibility="{Binding ShowCopySection, Converter={StaticResource BoolToVisible}}"/>
+                    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Margin="-6,0,10,0">
+                        <Button Style="{StaticResource IconButton}" Content="&#xE7A7;" Click="Undo_Click" IsEnabled="{Binding CanUndo}"
+                                ToolTip="{Binding UndoTip}" ToolTipService.ShowOnDisabled="True"/>
+                        <Button Style="{StaticResource IconButton}" Content="&#xE7A6;" Click="Redo_Click" IsEnabled="{Binding CanRedo}"
+                                ToolTip="{Binding RedoTip}" ToolTipService.ShowOnDisabled="True"/>
+                    </StackPanel>
+                    <ProgressBar DockPanel.Dock="Left" Width="140" Height="8" Margin="0,0,12,0" VerticalAlignment="Center"
+                                 Minimum="0" Maximum="1" Value="{Binding SpellPowerProgress, Mode=OneWay}"
+                                 ToolTip="{Binding SpellPowerTip}"
+                                 Visibility="{Binding SpellPowerScanning, Converter={StaticResource BoolToVisible}}"/>
+                    <TextBlock Text="{Binding Status}" ToolTip="{Binding Status}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                </DockPanel>
+            </Border>
+
+            <Border DockPanel.Dock="Top" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="8,6,16,6">
+                <DockPanel>
+                    <ToggleButton x:Name="SidebarToggle" DockPanel.Dock="Left" Style="{StaticResource IconToggle}" Content="&#xE700;" IsChecked="True"
+                                  ToolTip="Show or hide the section list"/>
+                    <Separator DockPanel.Dock="Left" Style="{StaticResource VerticalSeparator}"/>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Background="Transparent" ToolTip="{Binding ScreenSizeHelp}"
+                                    Visibility="{Binding HasResolution, Converter={StaticResource BoolToVisible}}">
+                            <TextBlock Text="Screen" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource MutedBrush}"/>
+                            <TextBlock Text="{Binding ScreenSizeText}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <Button Style="{StaticResource ChipButton}" Foreground="{DynamicResource WarningBrush}" BorderBrush="{DynamicResource WarningBrush}"
+                                Content="Screen resolution not found" ToolTip="{Binding ScreenSizeHelp}" Click="LocateGameFolder_Click"
+                                Visibility="{Binding HasResolution, Converter={StaticResource InverseBoolToVisible}}"/>
+                        <Separator Style="{StaticResource VerticalSeparator}"/>
+                        <TextBlock Text="Snap to grid" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource MutedBrush}"/>
+                        <ComboBox Width="92" ItemsSource="{Binding SnapOptions}" SelectedItem="{Binding SelectedSnap}"
+                                  ToolTip="Snap dragged and resized windows to a grid of this size"/>
+                    </StackPanel>
+                    <ContentControl DockPanel.Dock="Right" Style="{StaticResource AccentChip}" Content="{Binding ViewedTitle}" ToolTip="{Binding ViewedTitle}"
+                                    MaxWidth="280" Margin="8,0,16,0"/>
+                    <Button DockPanel.Dock="Right" Click="InventoryExport_Click" Margin="12,0,0,0"
+                            Visibility="{Binding BagSlotsText, Converter={StaticResource StringToVisible}}">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource ChipButton}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding BagSlotsStale}" Value="True">
+                                        <Setter Property="Foreground" Value="{DynamicResource WarningBrush}"/>
+                                        <Setter Property="BorderBrush" Value="{DynamicResource WarningBrush}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <Button.ToolTip>
+                            <TextBlock Text="{Binding BagSlotsHelp}" TextWrapping="Wrap" MaxWidth="360"/>
+                        </Button.ToolTip>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE7B8;" FontFamily="{StaticResource IconFont}" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBlock Text="{Binding BagSlotsText}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Grid Margin="4,0,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <ItemsControl x:Name="GroupBar" Style="{StaticResource SegmentedGroup}" ItemsSource="{Binding BarGroups}"
+                                      ItemTemplate="{StaticResource GroupToggleTemplate}"
+                                      controls:OverflowPanel.OverflowChanged="GroupBar_OverflowChanged">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <controls:OverflowPanel/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                        <ToggleButton x:Name="MoreGroupsButton" Grid.Column="1" Margin="6,0,0,0" Visibility="Collapsed" Width="Auto" MinWidth="32" Padding="8,0"
+                                      IsChecked="{Binding IsOpen, ElementName=MoreGroupsPopup, Mode=TwoWay}">
+                            <ToggleButton.Style>
+                                <Style TargetType="ToggleButton" BasedOn="{StaticResource IconToggle}">
+                                    <Setter Property="ToolTip" Value="More groups"/>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter Property="IsHitTestVisible" Value="False"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ToggleButton.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="MoreGroupsCount" FontFamily="Segoe UI" FontSize="11.5" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                <TextBlock Text="&#xE70D;" FontFamily="{StaticResource IconFont}" FontSize="10" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </ToggleButton>
+                        <Popup x:Name="MoreGroupsPopup" PlacementTarget="{Binding ElementName=MoreGroupsButton}" Placement="Bottom" VerticalOffset="4"
+                               StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
+                            <ContentControl Style="{StaticResource PopupPanel}" Padding="8">
+                                <ItemsControl x:Name="MoreGroupsList" Style="{StaticResource SegmentedGroup}" MinWidth="150"
+                                              ItemTemplate="{StaticResource GroupMenuTemplate}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </ItemsControl>
+                            </ContentControl>
+                        </Popup>
+                    </Grid>
+                </DockPanel>
+            </Border>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <Border x:Name="Sidebar" Grid.Column="0" Width="260" Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="0,0,1,0" Padding="10,10,6,8"
+                        Visibility="{Binding IsChecked, ElementName=SidebarToggle, Converter={StaticResource BoolToVisible}}">
+                    <DockPanel>
+                        <Border DockPanel.Dock="Top" Margin="0,0,4,8" Padding="6,8,4,6"
+                                Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6"
+                                Visibility="{Binding HasEditorRows, Converter={StaticResource BoolToVisible}}">
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Top" Text="Character" FontWeight="SemiBold" Margin="4,0,0,6"/>
+                                <ListBox x:Name="EditorList" AutomationProperties.Name="Character"
+                                         ItemsSource="{Binding EditorRowsView}"
+                                         SelectionChanged="EditorList_SelectionChanged"
+                                         PreviewKeyDown="EditorList_PreviewKeyDown"
+                                         ItemContainerStyle="{StaticResource SectionListItem}"
+                                         ItemTemplate="{StaticResource ItemRowTemplate}"
+                                         Background="Transparent" BorderThickness="0" Padding="0"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                         ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                         KeyboardNavigation.DirectionalNavigation="Contained">
+                                    <ListBox.Template>
+                                        <ControlTemplate TargetType="ListBox">
+                                            <ItemsPresenter/>
+                                        </ControlTemplate>
+                                    </ListBox.Template>
+                                    <ListBox.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel/>
+                                        </ItemsPanelTemplate>
+                                    </ListBox.ItemsPanel>
+                                </ListBox>
+                            </DockPanel>
+                        </Border>
+                        <Border Margin="0,0,4,0" Padding="6,8,2,4"
+                                Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6">
+                            <DockPanel>
+                                <DockPanel DockPanel.Dock="Top" Margin="0,0,2,6">
+                                    <ToggleButton DockPanel.Dock="Right" Style="{StaticResource IconToggle}" Content="&#xE721;"
+                                                  Width="22" Height="22" FontSize="12" VerticalAlignment="Center"
+                                                  AutomationProperties.Name="Find windows" ToolTip="Find windows"
+                                                  IsChecked="{Binding ShowSectionFilter}" Checked="SectionFilter_Checked"/>
+                                    <TextBlock Text="Windows" FontWeight="SemiBold" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                                </DockPanel>
+                                <Grid DockPanel.Dock="Top" Margin="0,0,4,8"
+                                      Visibility="{Binding ShowSectionFilter, Converter={StaticResource BoolToVisible}}">
+                                    <TextBox x:Name="SectionFilterBox" AutomationProperties.Name="Find windows"
+                                             Text="{Binding SectionFilter, UpdateSourceTrigger=PropertyChanged}" Padding="30,4,8,4"/>
+                                    <TextBlock Text="&#xE721;" FontFamily="{StaticResource IconFont}" FontSize="12" Margin="10,0,0,0" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource MutedBrush}" IsHitTestVisible="False"/>
+                                    <TextBlock Text="Find" Margin="31,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}" IsHitTestVisible="False"
+                                               Visibility="{Binding SectionFilter, Converter={StaticResource EmptyToVisible}}"/>
+                                </Grid>
+                                <ListBox x:Name="SectionList" AutomationProperties.Name="Windows" ItemsSource="{Binding SectionRowsView}"
+                                         SelectionMode="Extended"
+                                         SelectionChanged="SectionList_SelectionChanged"
+                                         PreviewMouseLeftButtonDown="SectionList_PreviewMouseLeftButtonDown"
+                                         PreviewMouseRightButtonDown="SectionList_PreviewMouseRightButtonDown"
+                                         PreviewKeyDown="SectionList_PreviewKeyDown"
+                                         ItemContainerStyle="{StaticResource SectionListItem}"
+                                         Background="Transparent" BorderThickness="0"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                         ItemTemplateSelector="{StaticResource SectionRowTemplates}"/>
+                            </DockPanel>
+                        </Border>
+                    </DockPanel>
+                </Border>
+
+                <DockPanel Grid.Column="1" Margin="12,8,12,8">
+                    <TextBlock DockPanel.Dock="Bottom" Text="{Binding EditorNote}" ToolTip="{Binding EditorNote}" Margin="2,6,0,0" FontSize="12"
+                               Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis"
+                               Visibility="{Binding EditorNote, Converter={StaticResource StringToVisible}}"/>
+                    <TextBlock DockPanel.Dock="Top" Text="Select a section to view or edit it." Margin="0,12,0,0" Foreground="{DynamicResource MutedBrush}"
+                               Visibility="{Binding HasSelection, Converter={StaticResource InverseBoolToVisible}}"/>
+                    <TabControl x:Name="EditorTabs" SelectionChanged="EditorTabs_SelectionChanged">
+                        <TabItem x:Name="LayoutTab" Header="Layout" Visibility="{Binding ShowLayout, Converter={StaticResource BoolToVisible}}">
+                            <Grid>
+                                <DockPanel Visibility="{Binding HasResolution, Converter={StaticResource BoolToVisible}}">
+                                    <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0" Visibility="{Binding ShowPlacement, Converter={StaticResource BoolToVisible}}">
+                                        <!-- One line stays reserved so the canvas does not jump when a single window is selected. -->
+                                        <Grid DockPanel.Dock="Top" Margin="2,0,0,6">
+                                            <TextBlock FontSize="12" Text=" " Visibility="Hidden"/>
+                                            <TextBlock Text="{Binding PlacementScopeText}" ToolTip="{Binding PlacementScopeText}"
+                                                       FontSize="12" Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis"/>
+                                        </Grid>
+                                        <ContentControl DockPanel.Dock="Right" Style="{StaticResource Chip}" Content="{Binding ArrangeHeader}" ToolTip="{Binding ArrangeHeader}"
+                                                        MaxWidth="320" Margin="12,6,0,0"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <ComboBox Style="{StaticResource LabeledComboBox}" Tag="X anchor" Width="112" Margin="0,0,8,0"
+                                                      ItemsSource="{Binding XRefs}" SelectedItem="{Binding XRef}"/>
+                                            <ComboBox Style="{StaticResource LabeledComboBox}" Tag="Y anchor" Width="112" Margin="0,0,16,0"
+                                                      ItemsSource="{Binding YRefs}" SelectedItem="{Binding YRef}"/>
+                                            <TextBox Style="{StaticResource LabeledTextBox}" Tag="X % of Screen" Width="140" Margin="0,0,8,0"
+                                                     AutomationProperties.Name="X percent of screen"
+                                                     Text="{Binding XPosText, UpdateSourceTrigger=PropertyChanged}" LostFocus="Position_LostFocus"/>
+                                            <TextBox Style="{StaticResource LabeledTextBox}" Tag="Y % of Screen" Width="140" Margin="0,0,16,0"
+                                                     AutomationProperties.Name="Y percent of screen"
+                                                     Text="{Binding YPosText, UpdateSourceTrigger=PropertyChanged}" LostFocus="Position_LostFocus"/>
+                                            <TextBox Style="{StaticResource LabeledTextBox}" Tag="W" Width="84" Margin="0,0,8,0"
+                                                     AutomationProperties.Name="Width"
+                                                     Text="{Binding WidthText, UpdateSourceTrigger=PropertyChanged}" LostFocus="Position_LostFocus" IsEnabled="{Binding CanResize}"/>
+                                            <TextBox Style="{StaticResource LabeledTextBox}" Tag="H" Width="84"
+                                                     AutomationProperties.Name="Height"
+                                                     Text="{Binding HeightText, UpdateSourceTrigger=PropertyChanged}" LostFocus="Position_LostFocus" IsEnabled="{Binding CanResize}"/>
+                                        </StackPanel>
+                                    </DockPanel>
+                                    <ScrollViewer DockPanel.Dock="Bottom" MaxHeight="140" Margin="0,8,0,0"
+                                                  VerticalScrollBarVisibility="Auto"
+                                                  Visibility="{Binding ShowChatFilters, Converter={StaticResource BoolToVisible}}">
+                                        <ItemsControl ItemsSource="{Binding ChatFilters}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel Margin="0,0,0,8">
+                                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                                                        <TextBlock Text="{Binding Filters}" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}"/>
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                    <controls:LayoutCanvas x:Name="Canvas"
+                                                           Windows="{Binding Windows}"
+                                                           SelectedNames="{Binding SelectedWindowList, Mode=OneWay}"
+                                                           SnapSize="{Binding SnapGridSize}"
+                                                           LayoutVersion="{Binding LayoutVersion}"
+                                                           ScreenWidth="{Binding ScreenWidth}"
+                                                           ScreenHeight="{Binding ScreenHeight}"
+                                                           LayoutEdited="Canvas_LayoutEdited"
+                                                           SelectionRequested="Canvas_SelectionRequested"
+                                                           FullScreenToggled="Canvas_FullScreenToggled"
+                                                           ContextMenu="{StaticResource ArrangeMenu}"
+                                                           ToolTip="{Binding LayoutHint}"
+                                                           ToolTipService.InitialShowDelay="1500"/>
+                                </DockPanel>
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="440"
+                                            Visibility="{Binding HasResolution, Converter={StaticResource InverseBoolToVisible}}">
+                                    <TextBlock Text="Screen resolution not found" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="{Binding ScreenSizeHelp}" Margin="0,8,0,16" TextWrapping="Wrap" TextAlignment="Center" Foreground="{DynamicResource MutedBrush}"/>
+                                    <Button Style="{StaticResource AccentButton}" Content="Locate game folder..." HorizontalAlignment="Center" Click="LocateGameFolder_Click"/>
+                                </StackPanel>
+                            </Grid>
+                        </TabItem>
+                        <TabItem x:Name="MacrosTab" Header="Macros" Visibility="{Binding ShowMacrosTab, Converter={StaticResource BoolToVisible}}">
+                            <Grid>
+                                <TextBlock Text="{Binding EditorUnavailableMessage}" TextWrapping="Wrap" TextAlignment="Center"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="480" Margin="24" FontSize="16"
+                                           Visibility="{Binding ShowEditorUnavailable, Converter={StaticResource BoolToVisible}}"/>
+                                <DockPanel Visibility="{Binding ShowSocials, Converter={StaticResource BoolToVisible}}" Margin="0,8,0,0">
+                                    <TextBlock DockPanel.Dock="Top" Margin="0,0,0,8" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}"
+                                               Text="Drag a source macro onto a destination button, or into Changes. Source macros can't be edited. Click an empty destination slot to create one, or right-click a destination macro to clear it. A change to a destination macro drops its link to the source."/>
+                                    <Grid x:Name="SocialBoard">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Row="1" Grid.Column="0" Margin="0,8,0,0" Padding="8"
+                                                Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6">
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding SocialEditorCaption}" FontSize="12" Margin="0,0,0,6" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}"/>
+                                                <StackPanel DataContext="{Binding SelectedSocial}"
+                                                            Visibility="{Binding DataContext.HasSocialSelection, RelativeSource={RelativeSource AncestorType=StackPanel}, Converter={StaticResource BoolToVisible}}">
+                                                    <TextBox Style="{StaticResource LabeledTextBox}" Tag="Name" Margin="0,0,0,8"
+                                                             IsReadOnly="{Binding DataContext.IsSocialReadOnly, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                             Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <TextBlock Text="Color" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="2,0,0,4"/>
+                                                    <ItemsControl ItemsSource="{Binding ColorChoices}" HorizontalAlignment="Stretch" Margin="0,0,0,8">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <UniformGrid Columns="10"/>
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Button Height="26" Margin="1" Padding="0" Click="MacroColor_Click"
+                                                                        IsEnabled="{Binding DataContext.CanEditSocial, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                        ToolTip="Choose a color for this macro name" AutomationProperties.Name="Macro color">
+                                                                    <Button.Style>
+                                                                        <Style TargetType="Button">
+                                                                            <Setter Property="Background" Value="Transparent"/>
+                                                                            <Setter Property="BorderBrush" Value="Transparent"/>
+                                                                            <Setter Property="BorderThickness" Value="2"/>
+                                                                            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                                                                            <Setter Property="Template">
+                                                                                <Setter.Value>
+                                                                                    <ControlTemplate TargetType="Button">
+                                                                                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                                                                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3" Padding="3">
+                                                                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                                        </Border>
+                                                                                    </ControlTemplate>
+                                                                                </Setter.Value>
+                                                                            </Setter>
+                                                                            <Style.Triggers>
+                                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                                    <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}"/>
+                                                                                </Trigger>
+                                                                                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </Button.Style>
+                                                                    <Border Width="16" Height="16" CornerRadius="2" Background="{Binding Brush}" BorderBrush="#FF5A5A5A" BorderThickness="1"/>
+                                                                </Button>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                    <TextBox Margin="0,0,0,4" AutomationProperties.Name="Line 1" IsReadOnly="{Binding DataContext.IsSocialReadOnly, RelativeSource={RelativeSource AncestorType=Window}}" Text="{Binding Line1, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <TextBox Margin="0,0,0,4" AutomationProperties.Name="Line 2" IsReadOnly="{Binding DataContext.IsSocialReadOnly, RelativeSource={RelativeSource AncestorType=Window}}" Text="{Binding Line2, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <TextBox Margin="0,0,0,4" AutomationProperties.Name="Line 3" IsReadOnly="{Binding DataContext.IsSocialReadOnly, RelativeSource={RelativeSource AncestorType=Window}}" Text="{Binding Line3, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <TextBox Margin="0,0,0,4" AutomationProperties.Name="Line 4" IsReadOnly="{Binding DataContext.IsSocialReadOnly, RelativeSource={RelativeSource AncestorType=Window}}" Text="{Binding Line4, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <TextBox AutomationProperties.Name="Line 5" IsReadOnly="{Binding DataContext.IsSocialReadOnly, RelativeSource={RelativeSource AncestorType=Window}}" Text="{Binding Line5, UpdateSourceTrigger=PropertyChanged}"/>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Grid.Row="0" Grid.Column="0" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="8">
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Top" Text="{Binding SourceSocialHeading}" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                                                <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+                                                    <WrapPanel>
+                                                        <StackPanel Orientation="Horizontal" Margin="0,0,12,4">
+                                                            <Border Width="16" Height="14" CornerRadius="3" Margin="0,1,6,0" Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"/>
+                                                            <TextBlock Text="No shared name" FontSize="11" VerticalAlignment="Center"/>
+                                                        </StackPanel>
+                                                        <StackPanel Orientation="Horizontal" Margin="0,0,12,4">
+                                                            <Border Width="16" Height="14" CornerRadius="3" Margin="0,1,6,0" Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource SocialNewBrush}" BorderThickness="2"/>
+                                                            <TextBlock Text="New macro" FontSize="11" VerticalAlignment="Center"/>
+                                                        </StackPanel>
+                                                        <StackPanel Orientation="Horizontal" Margin="0,0,12,4">
+                                                            <Border Width="16" Height="14" CornerRadius="3" Margin="0,1,6,0" Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource SocialMatchBrush}" BorderThickness="2"/>
+                                                            <TextBlock Text="Same macro" FontSize="11" VerticalAlignment="Center"/>
+                                                        </StackPanel>
+                                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                                            <Border Width="16" Height="14" CornerRadius="3" Margin="0,1,6,0" Background="{DynamicResource SelectionBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"/>
+                                                            <TextBlock Text="Selected" FontSize="11" VerticalAlignment="Center"/>
+                                                        </StackPanel>
+                                                    </WrapPanel>
+                                                </StackPanel>
+                                                <ScrollViewer x:Name="SourceSocialScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                                    <ItemsControl x:Name="SourceSocialList" ItemsSource="{Binding SourceSocialPages}" ItemTemplate="{StaticResource SocialPageTemplate}"/>
+                                                </ScrollViewer>
+                                            </DockPanel>
+                                        </Border>
+                                        <Border Grid.Row="1" Grid.Column="2" Margin="0,8,0,0" Padding="8" MinHeight="72" AllowDrop="True"
+                                                Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6"
+                                                DragOver="SocialTray_DragOver" Drop="SocialTray_Drop">
+                                            <DockPanel>
+                                                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,6">
+                                                    <TextBlock Text="Changes" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                    <Button Content="Clear All" Margin="8,0,0,0" MinHeight="0" Padding="8,2"
+                                                            Click="ClearSocialCopies_Click" IsEnabled="{Binding HasSocialChanges}"
+                                                            ToolTip="Revert every destination macro change"/>
+                                                </StackPanel>
+                                                <TextBlock Text="Copied, new, modified, and deleted destination macros are listed here. Drag a source macro here to copy it onto the same button."
+                                                           TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource MutedBrush}"
+                                                           Visibility="{Binding HasSocialChanges, Converter={StaticResource InverseBoolToVisible}}"/>
+                                                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                                              Visibility="{Binding HasSocialChanges, Converter={StaticResource BoolToVisible}}">
+                                                    <ItemsControl ItemsSource="{Binding SocialChanges}">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <WrapPanel/>
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Border Margin="0,0,6,6" Padding="6,3" CornerRadius="4" Background="{DynamicResource SurfaceAlt}"
+                                                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                                                        MouseLeftButtonUp="SocialChange_Click" Cursor="Hand">
+                                                                    <StackPanel Orientation="Horizontal">
+                                                                        <StackPanel Margin="0,0,6,0" VerticalAlignment="Center">
+                                                                            <TextBlock Text="{Binding KindText}" FontSize="10" FontWeight="Bold">
+                                                                                <TextBlock.Style>
+                                                                                    <Style TargetType="TextBlock">
+                                                                                        <Setter Property="Foreground" Value="{DynamicResource SocialNewBrush}"/>
+                                                                                        <Style.Triggers>
+                                                                                            <DataTrigger Binding="{Binding Kind}" Value="{x:Static models:SocialChangeKind.Copied}">
+                                                                                                <Setter Property="Foreground" Value="{DynamicResource SocialMatchBrush}"/>
+                                                                                            </DataTrigger>
+                                                                                            <DataTrigger Binding="{Binding Kind}" Value="{x:Static models:SocialChangeKind.Modified}">
+                                                                                                <Setter Property="Foreground" Value="{DynamicResource SocialQueuedBrush}"/>
+                                                                                            </DataTrigger>
+                                                                                            <DataTrigger Binding="{Binding Kind}" Value="{x:Static models:SocialChangeKind.Deleted}">
+                                                                                                <Setter Property="Foreground" Value="{DynamicResource WarningBrush}"/>
+                                                                                            </DataTrigger>
+                                                                                        </Style.Triggers>
+                                                                                    </Style>
+                                                                                </TextBlock.Style>
+                                                                            </TextBlock>
+                                                                            <TextBlock Text="{Binding Caption}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="140"/>
+                                                                            <TextBlock Text="{Binding Detail}" FontSize="10" Foreground="{DynamicResource MutedBrush}"/>
+                                                                        </StackPanel>
+                                                                        <Button Content="×" MinWidth="22" MinHeight="0" Width="22" Height="22" Padding="0" FontSize="14"
+                                                                                ToolTip="Revert this change" Click="RemoveSocialChange_Click"/>
+                                                                    </StackPanel>
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </ScrollViewer>
+                                            </DockPanel>
+                                        </Border>
+                                        <Border Grid.Row="0" Grid.Column="2" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="8">
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Top" Text="{Binding DestinationSocialHeading}" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                                                <ScrollViewer x:Name="DestinationSocialScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                                    <ItemsControl x:Name="DestinationSocialList" ItemsSource="{Binding DestinationSocialPages}" ItemTemplate="{StaticResource SocialPageTemplate}"/>
+                                                </ScrollViewer>
+                                            </DockPanel>
+                                        </Border>
+                                        <Canvas x:Name="SocialLinkCanvas" Grid.Row="0" Grid.ColumnSpan="3" IsHitTestVisible="False" ClipToBounds="True"/>
+                                    </Grid>
+                                </DockPanel>
+                            </Grid>
+                        </TabItem>
+                        <TabItem x:Name="SpellLoadoutsTab" Header="Spell Loadouts" Visibility="{Binding ShowSpellLoadoutsTab, Converter={StaticResource BoolToVisible}}">
+                            <Grid>
+                                <TextBlock Text="{Binding EditorUnavailableMessage}" TextWrapping="Wrap" TextAlignment="Center"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="480" Margin="24" FontSize="16"
+                                           Visibility="{Binding ShowEditorUnavailable, Converter={StaticResource BoolToVisible}}"/>
+                                <DockPanel Visibility="{Binding ShowSpells, Converter={StaticResource BoolToVisible}}" Margin="0,8,0,0">
+                                    <TextBlock DockPanel.Dock="Top" Text="{Binding SpellListNote}" Foreground="{DynamicResource WarningBrush}" TextWrapping="Wrap" Margin="0,0,0,8"
+                                               Visibility="{Binding SpellListNote, Converter={StaticResource StringToVisible}}"/>
+                                    <TextBlock DockPanel.Dock="Top" FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,8"
+                                               Text="Set this loadout's classes with the Class picker at the top to flag gems they can't use."
+                                               Visibility="{Binding ClassLabel, Converter={StaticResource EmptyToVisible}}"/>
+                                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Focusable="False">
+                                    <Grid HorizontalAlignment="Left">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="340"/>
+                                            <ColumnDefinition Width="12"/>
+                                            <ColumnDefinition Width="340"/>
+                                            <ColumnDefinition Width="12"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="12"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="12"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                    <Border Padding="10,8" CornerRadius="6"
+                                            Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                                        <DockPanel>
+                                            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                                                <Button DockPanel.Dock="Right" Content="Delete set" Margin="8,0,0,0" Padding="10,2"
+                                                        Click="DeleteSpellSet_Click" IsEnabled="{Binding CanDeleteSpellSet}"
+                                                        ToolTip="Remove the selected spell set. Save to delete it from the loadout file."/>
+                                                <Button DockPanel.Dock="Right" Content="Add set" Padding="10,2"
+                                                        Click="AddSpellSet_Click"
+                                                        ToolTip="Add an empty spell set. Save to write it to the loadout file."/>
+                                                <TextBlock FontWeight="SemiBold" VerticalAlignment="Center" Text="Spell sets"/>
+                                            </DockPanel>
+                                            <CheckBox DockPanel.Dock="Top" Content="Show unused spell sets" IsChecked="{Binding ShowAllSpells}"
+                                                      VerticalAlignment="Center" Margin="0,0,0,8"/>
+                                            <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0"
+                                                        Visibility="{Binding ShowSpellSuggestions, Converter={StaticResource BoolToVisible}}">
+                                                <TextBlock FontWeight="SemiBold" Text="Suggested spell sets"/>
+                                                <DockPanel Margin="0,6,0,6">
+                                                    <Button DockPanel.Dock="Right" Content="Rescan powers" Padding="8,2" Click="RescanPowers_Click"
+                                                            ToolTip="Read this character's log again and update spell power ranks."/>
+                                                    <TextBlock DockPanel.Dock="Left" Text="Max spell level" VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}"/>
+                                                    <TextBox DockPanel.Dock="Left" Width="48" Margin="8,0,0,0" VerticalAlignment="Center" ToolTip="Spells above this level are left out."
+                                                             Text="{Binding SuggestionLevelText, UpdateSourceTrigger=PropertyChanged}"/>
+                                                </DockPanel>
+                                                <TextBlock Text="{Binding SuggestionNote}" FontSize="11" Foreground="{DynamicResource WarningBrush}" TextWrapping="Wrap" Margin="0,0,0,6"
+                                                           Visibility="{Binding SuggestionNote, Converter={StaticResource StringToVisible}}"/>
+                                                <ListBox ItemsSource="{Binding SuggestedSets}" SelectedItem="{Binding SelectedSuggestion}"
+                                                         DisplayMemberPath="Name" BorderThickness="0" Background="Transparent"
+                                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
+                                            </StackPanel>
+                                            <DataGrid x:Name="SpellSetsGrid" ItemsSource="{Binding SpellView}" SelectedItem="{Binding SelectedSpellSet}" AutoGenerateColumns="False"
+                                                      CanUserAddRows="False" CanUserDeleteRows="False" CanUserSortColumns="False"
+                                                      HeadersVisibility="Column" SelectionMode="Single">
+                                                <DataGrid.Columns>
+                                                    <DataGridTextColumn Header="#" Binding="{Binding Index}" IsReadOnly="True" Width="40"/>
+                                                    <DataGridTextColumn Header="In Use" Binding="{Binding InUseText, UpdateSourceTrigger=PropertyChanged}" Width="80"/>
+                                                    <DataGridTextColumn Header="Name" Binding="{Binding Name, UpdateSourceTrigger=LostFocus}" Width="*"/>
+                                                </DataGrid.Columns>
+                                            </DataGrid>
+                                        </DockPanel>
+                                    </Border>
+                                    <Border Grid.Column="4" Padding="0" CornerRadius="6" Width="{Binding SpellSearchPanelWidth}"
+                                            Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                                        <Grid>
+                                        <DockPanel Margin="10,8" Visibility="{Binding SpellSearchExpanded, Converter={StaticResource BoolToVisible}}">
+                                            <Grid DockPanel.Dock="Top" Margin="0,0,0,2">
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <Button Style="{StaticResource IconButton}" Width="22" Height="22" FontSize="10" Margin="0,0,4,0"
+                                                            Content="{Binding SpellSearchChevron}"
+                                                            AutomationProperties.Name="{Binding SpellSearchExpandLabel}"
+                                                            ToolTip="{Binding SpellSearchExpandLabel}"
+                                                            Click="ToggleSpellSearch_Click"/>
+                                                    <TextBlock FontWeight="SemiBold" Text="Find a spell" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                    <ToggleButton Style="{StaticResource SortToggle}" Margin="0,0,4,0"
+                                                                  Content="{Binding SpellLevelSortText}" ToolTip="{Binding SpellLevelSortTip}"
+                                                                  IsChecked="{Binding SpellSortByLevel, Mode=OneWay}" Click="SpellLevelSort_Click"/>
+                                                    <ToggleButton Style="{StaticResource SortToggle}"
+                                                                  Content="{Binding SpellNameSortText}" ToolTip="{Binding SpellNameSortTip}"
+                                                                  IsChecked="{Binding SpellNameSortActive, Mode=OneWay}" Click="SpellNameSort_Click"/>
+                                                </StackPanel>
+                                            </Grid>
+                                            <TextBlock DockPanel.Dock="Top" FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,8"
+                                                       Text="Drag a result onto a gem."/>
+                                            <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="148"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <ComboBox Margin="0,0,8,0" VerticalAlignment="Center" IsTextSearchEnabled="False"
+                                                          DisplayMemberPath="Label"
+                                                          ItemsSource="{Binding SpellClassChoices}" SelectedItem="{Binding SpellClassChoice}"/>
+                                                <Grid Grid.Column="1">
+                                                    <TextBox Padding="6,4" VerticalAlignment="Center" Text="{Binding SpellSearchText, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <TextBlock Text="{Binding SpellSearchPlaceholder}" Margin="8,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"
+                                                               Foreground="{DynamicResource MutedBrush}">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding SpellSearchText}" Value="">
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </Grid>
+                                            </Grid>
+                                            <TextBlock DockPanel.Dock="Top" Text="{Binding SpellSearchNote}" FontSize="11" Foreground="{DynamicResource MutedBrush}"
+                                                       TextWrapping="Wrap" Margin="0,0,0,6"
+                                                       Visibility="{Binding SpellSearchNote, Converter={StaticResource StringToVisible}}"/>
+                                            <ListBox ItemsSource="{Binding SpellSearchResults}"
+                                                     SelectedItem="{Binding SelectedSpellHit}"
+                                                     SelectionMode="Single"
+                                                     BorderThickness="0" Background="Transparent"
+                                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                                     ItemContainerStyle="{StaticResource SpellPickItem}"
+                                                     MouseMove="SpellList_Move" MouseLeave="SpellList_Leave"
+                                                     PreviewMouseWheel="SpellList_Wheel"
+                                                     PreviewMouseLeftButtonDown="SpellSearch_Press"
+                                                     PreviewMouseMove="SpellSearch_Drag">
+                                                <ListBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Margin="0,3" Style="{StaticResource SpellPickCard}" Tag="SpellPanel"
+                                                                MouseEnter="SpellPanel_Enter" MouseLeave="SpellPanel_Leave">
+                                                            <DockPanel>
+                                                                <Image DockPanel.Dock="Right" Margin="8,0,0,0" VerticalAlignment="Center"
+                                                                       Width="{Binding DataContext.SpellIconPixels, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                       Height="{Binding DataContext.SpellIconPixels, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                       Source="{Binding Icon}" RenderOptions.BitmapScalingMode="HighQuality">
+                                                                    <Image.Style>
+                                                                        <Style TargetType="Image">
+                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding Icon}" Value="{x:Null}">
+                                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </Image.Style>
+                                                                </Image>
+                                                                <StackPanel VerticalAlignment="Center">
+                                                                    <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis">
+                                                                        <TextBlock.Style>
+                                                                            <Style TargetType="TextBlock">
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding IsUnusable}" Value="True">
+                                                                                        <Setter Property="Foreground" Value="{DynamicResource WarningBrush}"/>
+                                                                                    </DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </TextBlock.Style>
+                                                                    </TextBlock>
+                                                                    <TextBlock Text="{Binding ClassLevel}" FontSize="11" FontWeight="SemiBold"
+                                                                               Foreground="{DynamicResource AccentBrush}" TextTrimming="CharacterEllipsis" Margin="0,1,0,0"
+                                                                               Visibility="{Binding ClassLevel, Converter={StaticResource StringToVisible}}"/>
+                                                                </StackPanel>
+                                                            </DockPanel>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ListBox.ItemTemplate>
+                                            </ListBox>
+                                        </DockPanel>
+                                        <Button Style="{StaticResource SpellPanelRail}"
+                                                Visibility="{Binding SpellSearchExpanded, Converter={StaticResource InverseBoolToVisible}}"
+                                                ToolTip="{Binding SpellSearchExpandLabel}"
+                                                AutomationProperties.Name="{Binding SpellSearchExpandLabel}"
+                                                Click="ToggleSpellSearch_Click">
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding SpellSearchChevron}" FontFamily="{StaticResource IconFont}" FontSize="12" HorizontalAlignment="Center"/>
+                                                <TextBlock Text="Find a spell" FontWeight="SemiBold" Margin="0,10,0,0" HorizontalAlignment="Center">
+                                                    <TextBlock.LayoutTransform>
+                                                        <RotateTransform Angle="-90"/>
+                                                    </TextBlock.LayoutTransform>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </Button>
+                                        </Grid>
+                                    </Border>
+                                    <Border Grid.Column="2" Padding="10,8" CornerRadius="6"
+                                            Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                                        <DockPanel>
+                                            <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,2" TextTrimming="CharacterEllipsis">
+                                                <Run Text="Gems"/>
+                                                <Run Text="{Binding ShownGemTitle, Mode=OneWay}" Foreground="{DynamicResource MutedBrush}"/>
+                                            </TextBlock>
+                                            <TextBlock DockPanel.Dock="Top" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,6"
+                                                       Text="Drag a gem onto another slot to swap it. Drop a spell from the list on the right."
+                                                       Visibility="{Binding ShowingSuggestion, Converter={StaticResource InverseBoolToVisible}}"/>
+                                            <Button DockPanel.Dock="Bottom" Content="Save" HorizontalAlignment="Right" MinWidth="88" Margin="0,8,0,0"
+                                                    Style="{StaticResource AccentButton}" Click="SaveSuggestion_Click"
+                                                    Visibility="{Binding ShowingSuggestion, Converter={StaticResource BoolToVisible}}"
+                                                    ToolTip="Name this suggestion and add it to the spell set list."/>
+                                            <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0" LastChildFill="True"
+                                                       Visibility="{Binding HasGemSuggestions, Converter={StaticResource BoolToVisible}}">
+                                                <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,4" Text="Suggestions"/>
+                                                <ListBox ItemsSource="{Binding GemSuggestions}" MaxHeight="132" BorderThickness="0" Background="Transparent"
+                                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                                    <ListBox.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <DockPanel Margin="0,2">
+                                                                <Button DockPanel.Dock="Right" Content="Apply" Padding="8,2" Margin="8,0,0,0"
+                                                                        VerticalAlignment="Center" Click="ApplyGemSuggestion_Click"
+                                                                        ToolTip="Replace this gem with the suggested spell."/>
+                                                                <TextBlock Text="{Binding Text}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                                            </DockPanel>
+                                                        </DataTemplate>
+                                                    </ListBox.ItemTemplate>
+                                                </ListBox>
+                                            </DockPanel>
+                                            <ListBox ItemsSource="{Binding ShownGems}"
+                                                     SelectedItem="{Binding SelectedShownGem}"
+                                                     SelectionMode="Single"
+                                                     BorderThickness="0" Background="Transparent"
+                                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                                     ItemContainerStyle="{StaticResource SpellPickItem}"
+                                                     MouseMove="SpellList_Move" MouseLeave="SpellList_Leave"
+                                                     PreviewMouseWheel="SpellList_Wheel">
+                                                <ListBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="0,3" AllowDrop="True" Background="Transparent"
+                                                              PreviewMouseLeftButtonDown="Gem_Press" PreviewMouseMove="Gem_Drag"
+                                                              DragOver="Gem_DragOver" Drop="Gem_Drop">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="32"/>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                </Grid.ColumnDefinitions>
+                                                                <TextBlock Text="{Binding Number}" FontWeight="Bold" HorizontalAlignment="Left"
+                                                                           VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                                <Grid Grid.Column="1" VerticalAlignment="Top">
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="*"/>
+                                                                        <ColumnDefinition Width="28"/>
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <Border Style="{StaticResource SpellPickCard}" Tag="SpellPanel"
+                                                                            MouseEnter="SpellPanel_Enter" MouseLeave="SpellPanel_Leave">
+                                                                        <DockPanel>
+                                                                            <Image DockPanel.Dock="Right" Margin="8,0,0,0" VerticalAlignment="Center"
+                                                                                   Width="{Binding DataContext.SpellIconPixels, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                                   Height="{Binding DataContext.SpellIconPixels, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                                   Source="{Binding Icon}" RenderOptions.BitmapScalingMode="HighQuality">
+                                                                                <Image.Style>
+                                                                                    <Style TargetType="Image">
+                                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                                        <Style.Triggers>
+                                                                                            <DataTrigger Binding="{Binding Icon}" Value="{x:Null}">
+                                                                                                <Setter Property="Visibility" Value="Hidden"/>
+                                                                                            </DataTrigger>
+                                                                                        </Style.Triggers>
+                                                                                    </Style>
+                                                                                </Image.Style>
+                                                                            </Image>
+                                                                            <StackPanel VerticalAlignment="Center">
+                                                                                <TextBlock Text="{Binding SpellName}" TextTrimming="CharacterEllipsis"
+                                                                                           ToolTip="{Binding UsableTip}">
+                                                                                    <TextBlock.Style>
+                                                                                        <Style TargetType="TextBlock">
+                                                                                            <Style.Triggers>
+                                                                                                <DataTrigger Binding="{Binding IsUnusable}" Value="True">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource WarningBrush}"/>
+                                                                                                </DataTrigger>
+                                                                                            </Style.Triggers>
+                                                                                        </Style>
+                                                                                    </TextBlock.Style>
+                                                                                </TextBlock>
+                                                                                <StackPanel Orientation="Horizontal" Margin="0,1,0,0">
+                                                                                    <StackPanel.Style>
+                                                                                        <Style TargetType="StackPanel">
+                                                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                            <Style.Triggers>
+                                                                                                <DataTrigger Binding="{Binding HasLevels}" Value="True">
+                                                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                                                </DataTrigger>
+                                                                                                <DataTrigger Binding="{Binding HasUpgrade}" Value="True">
+                                                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                                                </DataTrigger>
+                                                                                            </Style.Triggers>
+                                                                                        </Style>
+                                                                                    </StackPanel.Style>
+                                                                                    <TextBlock Text="{Binding LoadoutLevels}" FontSize="11" FontWeight="SemiBold"
+                                                                                               Foreground="{DynamicResource AccentBrush}" TextTrimming="CharacterEllipsis"
+                                                                                               VerticalAlignment="Center" ToolTip="{Binding UsableTip}">
+                                                                                        <TextBlock.Style>
+                                                                                            <Style TargetType="TextBlock">
+                                                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                                <Style.Triggers>
+                                                                                                    <DataTrigger Binding="{Binding HasLevels}" Value="True">
+                                                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                                                    </DataTrigger>
+                                                                                                </Style.Triggers>
+                                                                                            </Style>
+                                                                                        </TextBlock.Style>
+                                                                                    </TextBlock>
+                                                                                    <Border Margin="6,0,0,0" VerticalAlignment="Center" Cursor="Hand" Tag="SpellUpgrade"
+                                                                                            BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
+                                                                                            CornerRadius="9" Padding="6,0" MinHeight="18"
+                                                                                            MouseEnter="SpellUpgrade_Enter" MouseLeave="SpellUpgrade_Leave"
+                                                                                            MouseLeftButtonUp="SpellUpgrade_Click">
+                                                                                        <Border.Style>
+                                                                                            <Style TargetType="Border">
+                                                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                                <Setter Property="Background" Value="Transparent"/>
+                                                                                                <Style.Triggers>
+                                                                                                    <DataTrigger Binding="{Binding HasUpgrade}" Value="True">
+                                                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                                                    </DataTrigger>
+                                                                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                                                                        <Setter Property="Background" Value="{DynamicResource HoverBrush}"/>
+                                                                                                    </Trigger>
+                                                                                                </Style.Triggers>
+                                                                                            </Style>
+                                                                                        </Border.Style>
+                                                                                        <TextBlock Text="Upgrade" FontSize="11" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
+                                                                                    </Border>
+                                                                                </StackPanel>
+                                                                            </StackPanel>
+                                                                        </DockPanel>
+                                                                    </Border>
+                                                                    <Button Grid.Column="1" Content="&#xE711;" Width="22" Height="22"
+                                                                            Foreground="#FF3B30" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                            ToolTip="Clear this gem" Click="Gem_Clear">
+                                                                        <Button.Style>
+                                                                            <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
+                                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding IsEmpty}" Value="True">
+                                                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                    </DataTrigger>
+                                                                                    <DataTrigger Binding="{Binding CanClear}" Value="False">
+                                                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                    </DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </Button.Style>
+                                                                    </Button>
+                                                                </Grid>
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                </ListBox.ItemTemplate>
+                                            </ListBox>
+                                        </DockPanel>
+                                    </Border>
+                                    <Border Grid.Column="6" Padding="0" CornerRadius="6" Width="{Binding SpellDetailsPanelWidth}"
+                                            Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                                        <Grid>
+                                            <DockPanel Margin="10,8" Visibility="{Binding SpellDetailsExpanded, Converter={StaticResource BoolToVisible}}">
+                                                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                                                    <Button Style="{StaticResource IconButton}" Width="22" Height="22" FontSize="10" Margin="0,0,4,0"
+                                                            Content="{Binding SpellDetailsChevron}"
+                                                            AutomationProperties.Name="{Binding SpellDetailsExpandLabel}"
+                                                            ToolTip="{Binding SpellDetailsExpandLabel}"
+                                                            Click="ToggleSpellDetails_Click"/>
+                                                    <TextBlock FontWeight="SemiBold" VerticalAlignment="Center" Text="Details"/>
+                                                </StackPanel>
+                                                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                                    <ContentControl Content="{Binding DisplayedSpellDetail}"
+                                                                    ContentTemplate="{StaticResource SpellDetailTemplate}"
+                                                                    HorizontalContentAlignment="Stretch" VerticalContentAlignment="Top"
+                                                                    Focusable="False" IsTabStop="False"/>
+                                                </ScrollViewer>
+                                            </DockPanel>
+                                            <Button Style="{StaticResource SpellPanelRail}"
+                                                    Visibility="{Binding SpellDetailsExpanded, Converter={StaticResource InverseBoolToVisible}}"
+                                                    ToolTip="{Binding SpellDetailsExpandLabel}"
+                                                    AutomationProperties.Name="{Binding SpellDetailsExpandLabel}"
+                                                    Click="ToggleSpellDetails_Click">
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding SpellDetailsChevron}" FontFamily="{StaticResource IconFont}" FontSize="12" HorizontalAlignment="Center"/>
+                                                    <TextBlock Text="Details" FontWeight="SemiBold" Margin="0,10,0,0" HorizontalAlignment="Center">
+                                                        <TextBlock.LayoutTransform>
+                                                            <RotateTransform Angle="-90"/>
+                                                        </TextBlock.LayoutTransform>
+                                                    </TextBlock>
+                                                </StackPanel>
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                    <Border Grid.Column="8" Padding="0" CornerRadius="6" Width="{Binding SpellUpgradePanelWidth}"
+                                            Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                                        <Grid>
+                                            <DockPanel Margin="10,8" Visibility="{Binding SpellUpgradeExpanded, Converter={StaticResource BoolToVisible}}">
+                                                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                                                    <Button Style="{StaticResource IconButton}" Width="22" Height="22" FontSize="10" Margin="0,0,4,0"
+                                                            Content="{Binding SpellUpgradeChevron}"
+                                                            AutomationProperties.Name="{Binding SpellUpgradeExpandLabel}"
+                                                            ToolTip="{Binding SpellUpgradeExpandLabel}"
+                                                            Click="ToggleSpellUpgrade_Click"/>
+                                                    <TextBlock FontWeight="SemiBold" VerticalAlignment="Center" Text="Spell Upgrade"/>
+                                                </StackPanel>
+                                                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                                    <ContentControl Content="{Binding DisplayedSpellUpgrade}"
+                                                                    ContentTemplate="{StaticResource SpellDetailTemplate}"
+                                                                    HorizontalContentAlignment="Stretch" VerticalContentAlignment="Top"
+                                                                    Focusable="False" IsTabStop="False"/>
+                                                </ScrollViewer>
+                                            </DockPanel>
+                                            <Button Style="{StaticResource SpellPanelRail}"
+                                                    Visibility="{Binding SpellUpgradeExpanded, Converter={StaticResource InverseBoolToVisible}}"
+                                                    ToolTip="{Binding SpellUpgradeExpandLabel}"
+                                                    AutomationProperties.Name="{Binding SpellUpgradeExpandLabel}"
+                                                    Click="ToggleSpellUpgrade_Click">
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding SpellUpgradeChevron}" FontFamily="{StaticResource IconFont}" FontSize="12" HorizontalAlignment="Center"/>
+                                                    <TextBlock Text="Spell Upgrade" FontWeight="SemiBold" Margin="0,10,0,0" HorizontalAlignment="Center">
+                                                        <TextBlock.LayoutTransform>
+                                                            <RotateTransform Angle="-90"/>
+                                                        </TextBlock.LayoutTransform>
+                                                    </TextBlock>
+                                                </StackPanel>
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                    </Grid>
+                                    </ScrollViewer>
+                                </DockPanel>
+                            </Grid>
+                        </TabItem>
+                        <TabItem x:Name="StructuredTab" Header="Hotbar" Visibility="{Binding ShowHotbar, Converter={StaticResource BoolToVisible}}">
+                            <Grid>
+                                <DockPanel Visibility="{Binding ShowHotbar, Converter={StaticResource BoolToVisible}}" Margin="0,8,0,0">
+                                    <ComboBox DockPanel.Dock="Top" Style="{StaticResource LabeledComboBox}" Tag="Page" Width="120" HorizontalAlignment="Left" Margin="0,0,0,8"
+                                              ItemsSource="{Binding HotbarPages}" SelectedItem="{Binding SelectedHotbarPage}"/>
+                                    <ListBox DockPanel.Dock="Top" Height="150" ItemsSource="{Binding HotbarSlots}" SelectedItem="{Binding SelectedHotbar}">
+                                        <ListBox.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel/>
+                                            </ItemsPanelTemplate>
+                                        </ListBox.ItemsPanel>
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Width="110" Height="36" Margin="2" Background="{DynamicResource SurfaceAlt}" CornerRadius="4">
+                                                    <TextBlock Text="{Binding Caption}" VerticalAlignment="Center" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                    <UniformGrid DataContext="{Binding SelectedHotbar}" Columns="2" VerticalAlignment="Top" Margin="0,8,0,0">
+                                        <TextBox Style="{StaticResource LabeledTextBox}" Tag="Label" Margin="0,0,8,8" Text="{Binding Label, UpdateSourceTrigger=PropertyChanged}"/>
+                                        <TextBox Style="{StaticResource LabeledTextBox}" Tag="Stored value" Margin="0,0,0,8" Text="{Binding Raw, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </UniformGrid>
+                                </DockPanel>
+                            </Grid>
+                        </TabItem>
+                        <TabItem x:Name="RawTab" Header="Raw keys" Visibility="{Binding ShowRaw, Converter={StaticResource BoolToVisible}}">
+                            <DockPanel Margin="0,8,0,0">
+                                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                                    <Button Content="Delete key" Click="DeleteRaw_Click"/>
+                                </StackPanel>
+                                <DataGrid x:Name="RawGrid" ItemsSource="{Binding RawRows}" SelectedItem="{Binding SelectedRaw}"
+                                          AutoGenerateColumns="False" CanUserAddRows="False" Sorting="RawGrid_Sorting">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn x:Name="RawKeyColumn" Header="Key" SortDirection="Ascending"
+                                                            Binding="{Binding Key, UpdateSourceTrigger=PropertyChanged}" Width="260"/>
+                                        <DataGridTextColumn x:Name="RawValueColumn" Header="Value"
+                                                            Binding="{Binding Value, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </DockPanel>
+                        </TabItem>
+                    </TabControl>
+                </DockPanel>
+            </Grid>
+        </DockPanel>
+        <Border x:Name="FullScreenHost" Visibility="Collapsed" Background="{DynamicResource WindowBackground}" Padding="8"/>
+    </Grid>
+</Window>

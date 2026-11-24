@@ -1,0 +1,33 @@
+<Window x:Class="EqlLoadouts.App.SplashWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="EQL Loadout Editor"
+        Width="440"
+        SizeToContent="Height"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource WindowBackground}"
+        Foreground="{DynamicResource TextBrush}"
+        FontFamily="Segoe UI"
+        FontSize="13"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown">
+    <Border Padding="28,26,28,22" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+        <StackPanel>
+            <Image Source="Assets/AppIcon.ico" Width="48" Height="48" HorizontalAlignment="Center"/>
+            <TextBlock Text="EQL Loadout Editor" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,14,0,0"/>
+            <TextBlock x:Name="VersionText" HorizontalAlignment="Center" Margin="0,4,0,0" Foreground="{DynamicResource MutedBrush}"/>
+            <TextBlock x:Name="RuntimeText" HorizontalAlignment="Center" Margin="0,2,0,0" Foreground="{DynamicResource MutedBrush}"/>
+            <TextBlock Text="Copyright © 2026 Generation X Technologies, Inc." TextAlignment="Center" TextWrapping="Wrap"
+                       HorizontalAlignment="Center" Margin="0,12,0,0"/>
+            <TextBlock HorizontalAlignment="Center" Margin="0,6,0,0">
+                <Hyperlink Click="SiteLink_Click" Foreground="{DynamicResource AccentBrush}" TextDecorations="Underline">https://genx-tech.com</Hyperlink>
+            </TextBlock>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,22,0,0">
+                <Button Content="View license" MinWidth="120" Click="ViewLicense_Click"/>
+                <Button x:Name="CloseButton" Content="Close" MinWidth="88" Margin="8,0,0,0" IsCancel="True" Click="Close_Click"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

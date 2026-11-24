@@ -1,0 +1,5 @@
+# Require repository owner review for all files.
+* @matt-riell
+
+# Protect the GitHub configuration directory.
+/.github/ @matt-riell

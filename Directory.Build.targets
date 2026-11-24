@@ -1,0 +1,23 @@
+<Project>
+  <!-- Replace machine-specific project, object, and package paths so two publishes hash the same. -->
+  <Target Name="EqlFixedPathMap"
+          AfterTargets="_SetPathMapFromSourceRoots"
+          BeforeTargets="CoreCompile"
+          Condition="'$(EqlSingleFilePublish)' == 'true'">
+    <PropertyGroup>
+      <_EqlPathMap>$(MSBuildProjectDirectory)=/src/$(MSBuildProjectName)/</_EqlPathMap>
+      <_EqlPathMap Condition="'$(IntermediateOutputPath)' != ''">$(IntermediateOutputPath)=/obj/,$(_EqlPathMap)</_EqlPathMap>
+      <_EqlPathMap Condition="'$(BaseIntermediateOutputPath)' != ''">$(BaseIntermediateOutputPath)=/artifacts/,$(_EqlPathMap)</_EqlPathMap>
+      <_EqlPathMap Condition="'$(NuGetPackageRoot)' != ''">$(_EqlPathMap),$(NuGetPackageRoot)=/nuget/</_EqlPathMap>
+      <PathMap>$(_EqlPathMap)</PathMap>
+    </PropertyGroup>
+  </Target>
+
+  <Target Name="EqlExcludePublishSymbols"
+          AfterTargets="ComputeResolvedFilesToPublishList"
+          Condition="'$(EqlSingleFilePublish)' == 'true'">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Extension)' == '.pdb'" />
+    </ItemGroup>
+  </Target>
+</Project>

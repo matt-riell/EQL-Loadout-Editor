@@ -1,0 +1,87 @@
+<Window x:Class="EqlLoadouts.App.SaveChangesWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Save changes"
+        Width="560"
+        SizeToContent="Height"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource WindowBackground}"
+        Foreground="{DynamicResource TextBrush}"
+        FontFamily="Segoe UI"
+        FontSize="13">
+    <Window.Resources>
+        <Style TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource InputBackground}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}"/>
+            <Setter Property="Padding" Value="8,0,0,0"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Grid x:Name="Root" Background="Transparent">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border x:Name="Box" Width="16" Height="16" CornerRadius="8" BorderThickness="1" VerticalAlignment="Center"
+                                    Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}">
+                                <Ellipse x:Name="Dot" Width="8" Height="8" Fill="{DynamicResource AccentTextBrush}" Visibility="Collapsed"/>
+                            </Border>
+                            <ContentPresenter Grid.Column="1" Margin="{TemplateBinding Padding}" RecognizesAccessKey="True"
+                                              VerticalAlignment="Center" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Box" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                <Setter TargetName="Dot" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource TextBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Root" Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+    <StackPanel Margin="20,18,20,16">
+        <TextBlock Text="Save changes" FontSize="15" FontWeight="SemiBold"/>
+        <TextBlock x:Name="BodyText" TextWrapping="Wrap" Margin="0,8,0,0"/>
+        <StackPanel x:Name="ScopePanel" Margin="0,14,0,0">
+            <RadioButton x:Name="WindowsChoice" GroupName="Scope" Content="Windows" Checked="Scope_Changed"/>
+            <RadioButton x:Name="CharacterChoice" GroupName="Scope" Margin="0,8,0,0" Checked="Scope_Changed"/>
+            <RadioButton x:Name="BothChoice" GroupName="Scope" Content="Windows and character" Margin="0,8,0,0" Checked="Scope_Changed"/>
+        </StackPanel>
+        <TextBlock x:Name="WindowsNote" TextWrapping="Wrap" Margin="0,12,0,0" FontSize="12" Foreground="{DynamicResource MutedBrush}"
+                   Text="Changed window sections are replaced. Unchanged window sections stay as they are on disk."/>
+        <StackPanel x:Name="ModePanel" Margin="0,14,0,0">
+            <TextBlock Text="Macros and Spell Loadouts" FontWeight="SemiBold"/>
+            <RadioButton x:Name="ReplaceChoice" GroupName="Mode" Content="Replace" Margin="0,8,0,0" IsChecked="True"/>
+            <TextBlock TextWrapping="Wrap" Margin="24,2,0,0" FontSize="12" Foreground="{DynamicResource MutedBrush}"
+                       Text="Socials and Spell Loadouts become exactly what the editor has, including removals. Every other section in the character file stays as it is on disk."/>
+            <RadioButton x:Name="MergeChoice" GroupName="Mode" Content="Merge (no deletion)" Margin="0,10,0,0"/>
+            <TextBlock TextWrapping="Wrap" Margin="24,2,0,0" FontSize="12" Foreground="{DynamicResource MutedBrush}"
+                       Text="Keys the editor has are written. Keys that are on disk in those sections, and missing from the editor, stay. Nothing in those sections is deleted. Every other section stays as it is on disk."/>
+        </StackPanel>
+        <TextBlock x:Name="OtherNote" TextWrapping="Wrap" Margin="0,12,0,0" FontSize="12" Foreground="{DynamicResource MutedBrush}"
+                   Text="Other changed character sections are replaced. Sections you did not change stay as they are on disk."/>
+        <TextBlock TextWrapping="Wrap" Margin="0,14,0,0" FontSize="12" Foreground="{DynamicResource MutedBrush}"
+                   Text="The original files are copied to LoadoutBackups\MODIFIED in the game folder before anything is written."/>
+        <DockPanel Margin="0,18,0,0">
+            <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Content="Save" MinWidth="96" IsDefault="True" Click="Save_Click"/>
+            <Button Content="Cancel" MinWidth="88" IsCancel="True" HorizontalAlignment="Left"/>
+        </DockPanel>
+    </StackPanel>
+</Window>

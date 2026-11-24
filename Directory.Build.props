@@ -1,0 +1,16 @@
+<Project>
+  <!-- Active only for publish-win-x64.ps1. Normal dotnet build and F5 do not set EqlSingleFilePublish. -->
+  <PropertyGroup Condition="'$(EqlSingleFilePublish)' == 'true'">
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+    <DeterministicSourcePaths>true</DeterministicSourcePaths>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+    <EmbedUntrackedSources>false</EmbedUntrackedSources>
+    <EnableSourceControlManagerQueries>false</EnableSourceControlManagerQueries>
+    <PublishRepositoryUrl>false</PublishRepositoryUrl>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <SourceRevisionId>eql-loadout-editor</SourceRevisionId>
+  </PropertyGroup>
+</Project>

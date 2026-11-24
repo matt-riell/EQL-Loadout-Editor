@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/EqlLoadouts.App/EqlLoadouts.App.csproj" />
+    <Project Path="src/EqlLoadouts.Core/EqlLoadouts.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/EqlLoadouts.Core.Tests/EqlLoadouts.Core.Tests.csproj" />
+  </Folder>
+</Solution>

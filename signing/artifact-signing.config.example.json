@@ -1,0 +1,13 @@
+{
+  "subscriptionId": "",
+  "subscriptionName": "",
+  "resourceGroup": "",
+  "accountName": "genxtechsigning26",
+  "certificateProfileName": "genx-public-signing",
+  "profileType": "PublicTrust",
+  "endpoint": "",
+  "location": "",
+  "expectedPublisher": "Generation X Technologies, Inc.",
+  "timestampUrl": "http://timestamp.acs.microsoft.com",
+  "comment": "These account and profile names are suggestions. Configure-ArtifactSigning.ps1 confirms them against Azure and writes signing/local/artifact-signing.config.json. It does not create a missing account or profile. Do not put tokens or passwords in this file."
+}

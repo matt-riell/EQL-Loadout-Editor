@@ -1,0 +1,43 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <SolidColorBrush x:Key="WindowBackground" Color="#F3F4F6"/>
+    <SolidColorBrush x:Key="SidebarBackground" Color="#FAFAFB"/>
+    <SolidColorBrush x:Key="Surface" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="SurfaceAlt" Color="#F2F3F5"/>
+    <SolidColorBrush x:Key="BorderBrush" Color="#D6D9DF"/>
+    <SolidColorBrush x:Key="BorderHoverBrush" Color="#A9AFB9"/>
+    <SolidColorBrush x:Key="TextBrush" Color="#1C1E22"/>
+    <SolidColorBrush x:Key="MutedBrush" Color="#667085"/>
+    <SolidColorBrush x:Key="AccentBrush" Color="#8C6239"/>
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="#744F2C"/>
+    <SolidColorBrush x:Key="AccentTextBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="SelectionBrush" Color="#F4EADF"/>
+    <SolidColorBrush x:Key="HoverBrush" Color="#EEF0F3"/>
+    <SolidColorBrush x:Key="InputBackground" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="CanvasFrameBrush" Color="#D0D8E0"/>
+    <SolidColorBrush x:Key="CanvasBackground" Color="#E4EAF1"/>
+    <SolidColorBrush x:Key="CanvasScreenBorderBrush" Color="#2A3848"/>
+    <SolidColorBrush x:Key="DisabledBrush" Color="#F2F3F5"/>
+    <SolidColorBrush x:Key="WarningBrush" Color="#B5541C"/>
+    <SolidColorBrush x:Key="DangerBrush" Color="#C43232"/>
+    <SolidColorBrush x:Key="CopyBrush" Color="#1F7A45"/>
+    <SolidColorBrush x:Key="SocialNewBrush" Color="#1A5FB4"/>
+    <SolidColorBrush x:Key="SocialMismatchBrush" Color="#A68400"/>
+    <SolidColorBrush x:Key="SocialMatchBrush" Color="#1F7A45"/>
+    <SolidColorBrush x:Key="SocialQueuedBrush" Color="#FFFFFF"/>
+
+    <SolidColorBrush x:Key="CanvasWindowBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="CanvasInventoryBrush" Color="#F8E8C4"/>
+    <SolidColorBrush x:Key="CanvasBankBrush" Color="#D7E6F8"/>
+    <SolidColorBrush x:Key="CanvasSelectedBrush" Color="#7A3E0C"/>
+    <SolidColorBrush x:Key="CanvasAnchorBrush" Color="#C2621D"/>
+    <SolidColorBrush x:Key="CanvasLabelBrush" Color="#101216"/>
+    <SolidColorBrush x:Key="CanvasStrokeBrush" Color="#2C3542"/>
+
+    <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#1C1E22"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="#1C1E22"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.GrayTextBrushKey}" Color="#667085"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#8C6239"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FFFFFF"/>
+</ResourceDictionary>
